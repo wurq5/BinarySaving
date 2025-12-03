@@ -280,3 +280,12 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
+
+/* Important Notes:
+ * You cannot use pointers in the structs being saved, this is because it will
+ * attempt to load an address that no long references the data necessary and
+ * will load a random value.
+ * It is also important to note that the data saved in this format is vulnerable
+ * to tampering, this can be avoided using obfuscation and other encryption
+ * methods.
+ */
