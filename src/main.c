@@ -7,7 +7,7 @@
 #include <string.h>
 
 // Config
-const char MAGIC[5] = "SAVE\0";
+const char MAGIC[5] = "SAVE";
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
