@@ -32,7 +32,8 @@ int saveDataV1(PlayerDataV1 *data, size_t count, FILE *file) {
 
 PlayerDataV1 *loadDataV1(FILE *file, size_t count) {
     PlayerDataV1 *data = malloc(sizeof(PlayerDataV1) * count);
-    if (!data) return NULL;
+    if (!data)
+        return NULL;
 
     fseek(file, sizeof(BinaryHeader), SEEK_SET); // Move our position in file
 
@@ -49,7 +50,8 @@ int saveDataV2(PlayerDataV2 *data, size_t count, FILE *file) {
 
 PlayerDataV2 *loadDataV2(FILE *file, size_t count) {
     PlayerDataV2 *data = malloc(sizeof(PlayerDataV2) * count);
-    if (!data) return NULL;
+    if (!data)
+        return NULL;
 
     fseek(file, sizeof(BinaryHeader), SEEK_SET); // Skip our header again
 
@@ -60,7 +62,8 @@ PlayerDataV2 *loadDataV2(FILE *file, size_t count) {
 
 PlayerDataV2 *migrateDataV1ToV2(PlayerDataV1 *playersData, size_t count) {
     PlayerDataV2 *newData = malloc(sizeof(PlayerDataV2) * count);
-    if (!newData) return NULL;
+    if (!newData)
+        return NULL;
 
     for (size_t i = 0; i < count; i++) {
         newData[i].health = playersData[i].health;
@@ -71,9 +74,10 @@ PlayerDataV2 *migrateDataV1ToV2(PlayerDataV1 *playersData, size_t count) {
     return newData;
 }
 
-PlayerDataV1* migrateDataV2ToV1(PlayerDataV2* playersData, size_t count) {
+PlayerDataV1 *migrateDataV2ToV1(PlayerDataV2 *playersData, size_t count) {
     PlayerDataV1 *newData = malloc(sizeof(PlayerDataV1) * count);
-    if (!newData) return NULL;
+    if (!newData)
+        return NULL;
 
     for (size_t i = 0; i < count; i++) {
         newData[i].health = playersData[i].health;
@@ -86,14 +90,14 @@ PlayerDataV1* migrateDataV2ToV1(PlayerDataV2* playersData, size_t count) {
 
 BinaryHeader *getHeader(FILE *file) {
     BinaryHeader *header = malloc(sizeof(BinaryHeader));
-    if (!header) return NULL;
+    if (!header)
+        return NULL;
 
     fseek(file, 0, SEEK_SET); // Ensure we're at the start
     fread(header, sizeof(BinaryHeader), 1, file);
 
     return header;
 }
-
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
@@ -106,7 +110,7 @@ int main(int argc, char *argv[]) {
 
     if (!saveFile) {
         printf("Warn: Creating file with header\n");
-        BinaryHeader* header = malloc(sizeof(BinaryHeader));
+        BinaryHeader *header = malloc(sizeof(BinaryHeader));
         strcpy(header->magic, "SAVE");
         header->version = 0;
         header->count = 0;
@@ -122,7 +126,8 @@ int main(int argc, char *argv[]) {
     // Validate its our file
     if (strcmp(header->magic, "SAVE") != 0) {
         printf("Error: Invalid header or not our file\n");
-        printf("Header info -> Version %d | Magic %s | Count %d", header->version, header->magic, header->count);
+        printf("Header info -> Version %d | Magic %s | Count %d",
+               header->version, header->magic, header->count);
         return -1;
     }
 
@@ -139,7 +144,8 @@ int main(int argc, char *argv[]) {
 
     // Lets figure out the use case
     if (strcmp(argv[1], "--load") == 0) {
-        // If we need to load it then we're reading so we use "rb" to read the binary data
+        // If we need to load it then we're reading so we use "rb" to read the
+        // binary data
         saveFile = fopen("data.bin", "rb");
 
         if (!saveFile) {
@@ -166,9 +172,9 @@ int main(int argc, char *argv[]) {
     } else if (strcmp(argv[1], "--save") == 0) {
         saveFile = fopen("data.bin", "wb"); // Now open in write binary mode
         // Now create our new header
-        BinaryHeader* newHeader = malloc(sizeof(BinaryHeader));
+        BinaryHeader *newHeader = malloc(sizeof(BinaryHeader));
         strcpy(newHeader->magic, "SAVE");
-        
+
         if (header->version == 0) {
             printf("Please enter a valid version to save to (1-2): ");
             scanf("%d", &header->version);
@@ -183,7 +189,7 @@ int main(int argc, char *argv[]) {
 
         newHeader->count = count;
 
-        fwrite(newHeader, sizeof(BinaryHeader), 1, saveFile); 
+        fwrite(newHeader, sizeof(BinaryHeader), 1, saveFile);
 
         if (header->version == 1) {
             PlayerDataV1 *playersData = malloc(sizeof(PlayerDataV1) * count);
@@ -234,27 +240,36 @@ int main(int argc, char *argv[]) {
             return -1;
         } else {
             if (targetVersion == 1 && header->version == 2) {
-                PlayerDataV2* oldData = loadDataV2(saveFile, header->count); // Fetch old data
-                PlayerDataV1* playersData = migrateDataV2ToV1(oldData, header->count); // Migrate it
-                fclose(saveFile); // Exit read mode
-                saveFile = fopen("data.bin", "wb"); // Now we are writing the new data
+                PlayerDataV2 *oldData =
+                    loadDataV2(saveFile, header->count); // Fetch old data
+                PlayerDataV1 *playersData =
+                    migrateDataV2ToV1(oldData, header->count); // Migrate it
+                fclose(saveFile);                              // Exit read mode
+                saveFile =
+                    fopen("data.bin", "wb"); // Now we are writing the new data
                 // Write our header
                 header->version = targetVersion; // Update version
-                fwrite(header, sizeof(BinaryHeader), 1, saveFile); // Write header first
-                fwrite(playersData, sizeof(PlayerDataV1), header->count, saveFile); // Write new data
+                fwrite(header, sizeof(BinaryHeader), 1,
+                       saveFile); // Write header first
+                fwrite(playersData, sizeof(PlayerDataV1), header->count,
+                       saveFile); // Write new data
             } else if (targetVersion == 2 && header->version == 1) {
-                PlayerDataV1* oldData = loadDataV1(saveFile, header->count); // Fetch old data
-                PlayerDataV2* playersData = migrateDataV1ToV2(oldData, header->count); // Migrate old data
-                fclose(saveFile); // Exit read mode
+                PlayerDataV1 *oldData =
+                    loadDataV1(saveFile, header->count); // Fetch old data
+                PlayerDataV2 *playersData = migrateDataV1ToV2(
+                    oldData, header->count); // Migrate old data
+                fclose(saveFile);            // Exit read mode
                 saveFile = fopen("data.bin", "wb");
                 // Write the header
                 header->version = targetVersion; // Update new version
                 fwrite(header, sizeof(BinaryHeader), 1, saveFile);
-                fwrite(playersData, sizeof(PlayerDataV2), header->count, saveFile); 
+                fwrite(playersData, sizeof(PlayerDataV2), header->count,
+                       saveFile);
             }
         }
     } else {
-        printf("Error: Incorrect flag use either '--load' or '--save' or '--migrate'\n");
+        printf("Error: Incorrect flag use either '--load' or '--save' or "
+               "'--migrate'\n");
         return -1;
     }
 
