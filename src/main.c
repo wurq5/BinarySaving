@@ -1,103 +1,13 @@
+#include "DataFunctions.h"
+#include "DataTypes.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-// Version 1 player data
-typedef struct {
-    int health;
-    char name[32];
-} PlayerDataV1;
-
-// Version 2 player data
-typedef struct {
-    int health;
-    char name[32];
-    int level; // New addition
-} PlayerDataV2;
-
-// This is how we can identify a save type and migrate / load safely
-typedef struct {
-    char magic[5]; // Our identifier to know its our file, not some random file
-    uint32_t version; // This is how we get our version
-    uint32_t count;   // Finally, this is the amount of objects saved
-} BinaryHeader;
-
-// Setup our helper functions to load / save and identify the save data
-int saveDataV1(PlayerDataV1 *data, size_t count, FILE *file) {
-    fwrite(data, sizeof(PlayerDataV1), count, file);
-    return 0;
-}
-
-PlayerDataV1 *loadDataV1(FILE *file, size_t count) {
-    PlayerDataV1 *data = malloc(sizeof(PlayerDataV1) * count);
-    if (!data)
-        return NULL;
-
-    fseek(file, sizeof(BinaryHeader), SEEK_SET); // Move our position in file
-
-    fread(data, sizeof(PlayerDataV1), count,
-          file); // Now read the size of the data struct * count
-
-    return data;
-}
-
-int saveDataV2(PlayerDataV2 *data, size_t count, FILE *file) {
-    fwrite(data, sizeof(PlayerDataV2), count, file);
-    return 0;
-}
-
-PlayerDataV2 *loadDataV2(FILE *file, size_t count) {
-    PlayerDataV2 *data = malloc(sizeof(PlayerDataV2) * count);
-    if (!data)
-        return NULL;
-
-    fseek(file, sizeof(BinaryHeader), SEEK_SET); // Skip our header again
-
-    fread(data, sizeof(PlayerDataV2), count, file);
-
-    return data;
-}
-
-PlayerDataV2 *migrateDataV1ToV2(PlayerDataV1 *playersData, size_t count) {
-    PlayerDataV2 *newData = malloc(sizeof(PlayerDataV2) * count);
-    if (!newData)
-        return NULL;
-
-    for (size_t i = 0; i < count; i++) {
-        newData[i].health = playersData[i].health;
-        strcpy(newData[i].name, playersData[i].name);
-        newData[i].level = 1; // Or the default value for this field
-    }
-
-    return newData;
-}
-
-PlayerDataV1 *migrateDataV2ToV1(PlayerDataV2 *playersData, size_t count) {
-    PlayerDataV1 *newData = malloc(sizeof(PlayerDataV1) * count);
-    if (!newData)
-        return NULL;
-
-    for (size_t i = 0; i < count; i++) {
-        newData[i].health = playersData[i].health;
-        strcpy(newData[i].name, playersData[i].name);
-        // Disregard our new field as it is no longer compatible in this version
-    }
-
-    return newData;
-}
-
-BinaryHeader *getHeader(FILE *file) {
-    BinaryHeader *header = malloc(sizeof(BinaryHeader));
-    if (!header)
-        return NULL;
-
-    fseek(file, 0, SEEK_SET); // Ensure we're at the start
-    fread(header, sizeof(BinaryHeader), 1, file);
-
-    return header;
-}
+// Config
+const char MAGIC[5] = "SAVE\0";
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
@@ -110,24 +20,26 @@ int main(int argc, char *argv[]) {
 
     if (!saveFile) {
         printf("Warn: Creating file with header\n");
-        BinaryHeader *header = malloc(sizeof(BinaryHeader));
-        strcpy(header->magic, "SAVE");
-        header->version = 0;
-        header->count = 0;
+        // Open file in write binary mode to write our header
         saveFile = fopen("data.bin", "wb");
-        fwrite(header, sizeof(BinaryHeader), 1, saveFile);
-        fclose(saveFile);
-        saveFile = fopen("data.bin", "rb");
+
+        writeNewHeader(saveFile, MAGIC, 0,
+                       0); // Give default values to identify that its new
+
+        fclose(saveFile);                   // exit write mode
+        saveFile = fopen("data.bin", "rb"); // enter read mode
     }
 
     // Load our header
     BinaryHeader *header = getHeader(saveFile);
 
     // Validate its our file
-    if (strcmp(header->magic, "SAVE") != 0) {
+    if (strcmp(header->magic, MAGIC) != 0) {
         printf("Error: Invalid header or not our file\n");
+
         printf("Header info -> Version %d | Magic %s | Count %d",
                header->version, header->magic, header->count);
+
         return -1;
     }
 
@@ -171,25 +83,20 @@ int main(int argc, char *argv[]) {
         }
     } else if (strcmp(argv[1], "--save") == 0) {
         saveFile = fopen("data.bin", "wb"); // Now open in write binary mode
-        // Now create our new header
-        BinaryHeader *newHeader = malloc(sizeof(BinaryHeader));
-        strcpy(newHeader->magic, "SAVE");
-
+        // Check if its a new save
         if (header->version == 0) {
             printf("Please enter a valid version to save to (1-2): ");
             scanf("%d", &header->version);
         }
 
-        newHeader->version = header->version;
+        int count; // This is how many entries will be created and the value
+                   // passed to the header
 
-        int count;
-
+        // Get the count
         printf("How many players would you like to create? ");
         scanf("%d", &count);
 
-        newHeader->count = count;
-
-        fwrite(newHeader, sizeof(BinaryHeader), 1, saveFile);
+        writeNewHeader(saveFile, MAGIC, header->version, count);
 
         if (header->version == 1) {
             PlayerDataV1 *playersData = malloc(sizeof(PlayerDataV1) * count);
@@ -201,8 +108,11 @@ int main(int argc, char *argv[]) {
 
             // Get all our necessary values
             for (size_t i = 0; i < count; i++) {
+                // Get name
                 printf("Name: ");
                 scanf("%s", playersData[i].name);
+
+                // Get health
                 printf("Health: ");
                 scanf("%d", &playersData[i].health);
             }
@@ -210,6 +120,7 @@ int main(int argc, char *argv[]) {
             saveDataV1(playersData, count, saveFile); // Now write it all
         } else if (header->version == 2) {
             PlayerDataV2 *playersData = malloc(sizeof(PlayerDataV2) * count);
+
             if (!playersData) {
                 printf("Error: Malloc failed\n");
                 fclose(saveFile);
@@ -217,10 +128,15 @@ int main(int argc, char *argv[]) {
             }
 
             for (size_t i = 0; i < count; i++) {
+                // Get name
                 printf("Name: ");
                 scanf("%s", playersData[i].name);
+
+                // Get health
                 printf("Health: ");
                 scanf("%d", &playersData[i].health);
+
+                // Get level
                 printf("Level: ");
                 scanf("%d", &playersData[i].level);
             }
@@ -283,7 +199,7 @@ int main(int argc, char *argv[]) {
 
 /* Important Notes:
  * You cannot use pointers in the structs being saved, this is because it will
- * attempt to load an address that no long references the data necessary and
+ * attempt to load an address that no longer references the data necessary and
  * will load a random value.
  * It is also important to note that the data saved in this format is vulnerable
  * to tampering, this can be avoided using obfuscation and other encryption
