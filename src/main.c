@@ -163,12 +163,10 @@ int main(int argc, char *argv[]) {
                 fclose(saveFile);                              // Exit read mode
                 saveFile =
                     fopen("data.bin", "wb"); // Now we are writing the new data
-                // Write our header
+
                 header->version = targetVersion; // Update version
-                fwrite(header, sizeof(BinaryHeader), 1,
-                       saveFile); // Write header first
-                fwrite(playersData, sizeof(PlayerDataV1), header->count,
-                       saveFile); // Write new data
+                writeHeader(saveFile, header); // Write header first
+                saveDataV1(playersData, header->count, saveFile); // Write new data
             } else if (targetVersion == 2 && header->version == 1) {
                 PlayerDataV1 *oldData =
                     loadDataV1(saveFile, header->count); // Fetch old data
@@ -178,9 +176,9 @@ int main(int argc, char *argv[]) {
                 saveFile = fopen("data.bin", "wb");
                 // Write the header
                 header->version = targetVersion; // Update new version
-                fwrite(header, sizeof(BinaryHeader), 1, saveFile);
-                fwrite(playersData, sizeof(PlayerDataV2), header->count,
-                       saveFile);
+
+                writeHeader(saveFile, header);
+                saveDataV2(playersData, header->count, saveFile);
             }
         }
     } else {
