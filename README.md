@@ -7,7 +7,7 @@ With this example, you'll learn how to:
 - Version your save files for future updates 
 - Load data back safely and reliably 
 
-Perfect for game devs curious about **how to store data efficiently**
+Perfect for game devs curious about **how to store data efficiently** or **implementing a custom file format**
 
 ## Features
 - Binary file reading/writing
